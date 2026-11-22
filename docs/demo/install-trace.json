@@ -1,0 +1,17 @@
+{
+  "platform": "Ubuntu 24.04 container",
+  "release": "v_825fd2.6b02a58f",
+  "command": "bash install.sh --no-launch --version v_825fd2.6b02a58f",
+  "download": "Published package downloaded with authenticated GitHub access, then mounted read-only; no credentials in container",
+  "exit_code": 0,
+  "installer_output": [
+    "  Detected linux / arm64",
+    "  Release v_825fd2.6b02a58f",
+    "  Downloading gosync-desktop-linux-arm64.deb\u2026",
+    "  SHA-256 verified.",
+    "  Installing the desktop package and its runtime dependencies\u2026",
+    "  Installed GoSync. Launch it from Applications.",
+    "  Next: open GoSync and choose a folder, or select your existing configuration.",
+    "  Synchronization starts only through the app's setup/service controls."
+  ]
+}

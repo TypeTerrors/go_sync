@@ -1,0 +1,29 @@
+name: Regression tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - name: Check workflows and release behavior
+        run: |
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          node --test scripts/release-workflow.test.cjs
+      - run: make test
+      - run: make integration
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-results
+          path: |
+            /tmp/gosync-regression-*/results.json
+            /tmp/gosync-regression-*/compose.log
+            /tmp/gosync-startup-*/results.json
+            /tmp/gosync-startup-*/compose.log

@@ -1,0 +1,28 @@
+/A/
+/B/
+main
+sync_folder
+/badgerdb
+
+/badgerdb-v2/
+/.test-bin/
+/gosync
+
+/dist/
+/.gocache/
+/gosync
+
+__pycache__/
+
+# Workstation metadata and generated source dumps
+.DS_Store
+/all_contents.txt
+
+# Local credentials belong outside the public source tree
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx

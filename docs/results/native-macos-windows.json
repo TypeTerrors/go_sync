@@ -1,0 +1,88 @@
+{
+  "date": "2026-11-22",
+  "host": {
+    "os": "macOS",
+    "version": "26.6.2",
+    "arch": "arm64"
+  },
+  "base_commit": "af8339012d7b45a218175deaaecfe3d7b0a51963",
+  "scope": "Native macOS Settings and Activity windows; Ubuntu retains existing dialogs.",
+  "source_sha256": {
+    "internal/desktop/ui/windows_darwin.go": "ca6cae5ba4aa3ff6512af98ee3607d6fc7581afda9cc2281a13bfd3c60c5a3d6",
+    "internal/desktop/ui/windows_darwin.m": "11e7af48b72a602a1a884de2d97b1cc4193f390eef87c4d76afa56d669bb7206",
+    "internal/desktop/ui/dashboard_darwin.m": "9c8f419f847205aca67750400cdc116e26b437c70d834d27034df98d86aa0ebf",
+    "internal/desktop/ui/dashboard_darwin.h": "a4040d92fcbce664d3a96f16dc2d782a28b85343c126fa405eff6973b31817f0",
+    "internal/desktop/ui/presentation_darwin.go": "b7837ac2a52a9f1011ab579f82b23a64ec4919a5e2db50f9ee584e80de5c63a1",
+    "internal/desktop/ui/ui.go": "72f66d57ffbd2bf7943c8d8aaa52b028fbf7e3984dde5133eea7f2d5c8852ba6",
+    "internal/desktop/config/config.go": "061587841939f7bc43bb153723c059e91941e718598bc41c2ca1395b78f520b9"
+  },
+  "native_checks": [
+    "CGO_ENABLED=1 go test -race -tags desktop ./internal/desktop/... ./cmd/tray",
+    "CGO_ENABLED=1 go vet -tags desktop ./internal/desktop/... ./cmd/tray",
+    "make desktop",
+    "sh scripts/test-macos-windows.sh"
+  ],
+  "interactive_passes": [
+    "Settings opens as a regular native window and is accessible to computer use",
+    "Native folder picker accepts a path containing spaces",
+    "Picker and setup-confirmation cancellation leave no service or selected configuration",
+    "New-folder setup creates private configuration and history, without starting synchronization",
+    "Existing mutual-TLS configuration imports without being rewritten or started",
+    "Previous folder configuration hash and history files preserved after import",
+    "Start and Stop operate the disposable LaunchAgent",
+    "Folder/configuration selectors disabled while synchronization is active",
+    "Disabling service login leaves the daemon running",
+    "Peers table shows actual loopback address and successful reconciliation times",
+    "Transfers table shows actual receiving path, payload bytes, target size, and start time",
+    "Graph and send/receive rates update during bidirectional transfers",
+    "Attention shows its empty state for a healthy snapshot",
+    "Stopped Activity explicitly labels historical data and hides live metrics",
+    "Rescan shows a native confirmation sheet",
+    "Command-1 opens Activity, Command-comma opens Settings, Command-W closes the current window",
+    "Activity opens safely before graph samples exist (JSON null history regression)",
+    "Command-Q quits the tray; same daemon PID continues and receives another file"
+  ],
+  "transfer": {
+    "passed": true,
+    "files": 2,
+    "bytes_each": 25165824,
+    "sha256": {
+      "design-assets.bin": "2d76fb65a554b3269511d5f8c9301774dbe1616c5de66f822cdc988b9cdfede3",
+      "reference-library.bin": "3fa63fb5ec24c58988b7428cd5686e8ea323db8683826658ff436302b5f191ac"
+    }
+  },
+  "quit_tray": {
+    "same_daemon_pid": true,
+    "continued_sync_after_quit": true,
+    "bytes": 176128,
+    "sha256": "cdd098d84b342b9919575317103dee75ec29b0041cc63b19ad58f25d4a154e93"
+  },
+  "automated_component_checks": [
+    "empty, live, and historical native view states",
+    "service-action gating and table contents",
+    "snapshot updates do not trigger service/login actions",
+    "light and dark native component rendering",
+    "window closure does not dispatch stop",
+    "null graph history regression",
+    "configuration failures included in Attention",
+    "overlapping folder roots rejected"
+  ],
+  "screenshots": {
+    "desktop-macos.png": "Genuine earlier af83390 single-icon menu capture, unconfigured; that header layout is unchanged by the native window work.",
+    "desktop-macos-settings.png": "Genuine installed native Settings window, unconfigured, after the startup fix.",
+    "desktop-macos-activity.png": "Genuine native Activity window during the verified two-peer transfer; no synthetic samples or compositing."
+  },
+  "cleanup": {
+    "temporary_service_removed": true,
+    "test_daemons_stopped": true,
+    "temporary_selection_removed": true,
+    "files_configuration_and_history_preserved": true,
+    "updated_tray_and_settings_left_open": true
+  },
+  "limitations": [
+    "Interactive visual checks and screenshots use dark appearance; light appearance has automated AppKit rendering coverage.",
+    "Per-file upload names are absent from existing telemetry; the UI displays active upload counts.",
+    "No new Mac-to-Spark LAN, mDNS, login/logout, or clean-machine installation verification.",
+    "PR remains draft for review of the expanded native windows; no merge or release performed."
+  ]
+}

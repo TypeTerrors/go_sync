@@ -1,0 +1,60 @@
+name: Native desktop builds
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            os: linux
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
+          - runner: macos-15-intel
+            os: darwin
+            arch: amd64
+          - runner: macos-15
+            os: darwin
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - name: Verify native architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: test "$(go env GOHOSTARCH)" = "$EXPECTED_ARCH"
+      - name: Install Ubuntu dashboard dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 xvfb xauth
+      - name: Native GTK dashboard checks
+        if: matrix.os == 'linux'
+        run: xvfb-run -a /usr/bin/python3 scripts/test-dashboard.py
+      - name: Native desktop checks
+        run: |
+          CGO_ENABLED=1 go test -race -tags desktop ./internal/desktop/... ./cmd/tray
+          CGO_ENABLED=1 go vet -tags desktop ./internal/desktop/... ./cmd/tray
+          make desktop
+      - name: Native macOS daemon regression
+        if: matrix.os == 'darwin'
+        run: |
+          sh scripts/test-macos-windows.sh
+          make test
+          go vet ./...
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/gosync-desktop-*
+          if-no-files-found: error

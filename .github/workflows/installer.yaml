@@ -1,0 +1,55 @@
+name: Desktop installer
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            os: linux
+          - runner: ubuntu-24.04-arm
+            os: linux
+          - runner: macos-15-intel
+            os: darwin
+          - runner: macos-15
+            os: darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax and installer contracts
+        run: |
+          bash -n install.sh
+          python3 scripts/test-installer.py
+      - name: Shell lint
+        if: matrix.os == 'linux'
+        run: shellcheck install.sh
+      - name: Install published Ubuntu package
+        if: matrix.os == 'linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash install.sh --github-auth --no-launch
+          test "$(dpkg-query -W -f='${Status}' gosync-desktop)" = 'install ok installed'
+          gosync --help
+          test ! -e "$HOME/.config/gosync/default.yaml"
+          test ! -e "$HOME/.config/systemd/user/gosync.service"
+      - name: Install and replace published Mac app
+        if: matrix.os == 'darwin'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          app_dir="$RUNNER_TEMP/GoSync installer/Applications"
+          bash install.sh --github-auth --no-launch --app-dir "$app_dir"
+          codesign --verify --deep --strict "$app_dir/GoSync.app"
+          "$app_dir/GoSync.app/Contents/MacOS/gosync" --help
+          bash install.sh --github-auth --no-launch --app-dir "$app_dir"
+          codesign --verify --deep --strict "$app_dir/GoSync.app"
+          test ! -e "$HOME/Library/Application Support/gosync/default.yaml"
+          test ! -e "$HOME/Library/LaunchAgents/com.typeterrors.gosync.plist"

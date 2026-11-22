@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=GoSync
+Comment=Keep a local folder in sync across your LAN
+Exec=/usr/lib/gosync/gosync-desktop
+Icon=gosync
+Terminal=false
+Categories=Network;FileTransfer;
+StartupNotify=false

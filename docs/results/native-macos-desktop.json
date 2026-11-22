@@ -1,0 +1,288 @@
+{
+  "date": "2026-11-22",
+  "platform": {
+    "os": "macOS",
+    "version": "26.6.2",
+    "build": "25G83",
+    "architecture": "arm64",
+    "go": "go1.26.1",
+    "filesystem_case_sensitive": false
+  },
+  "base_revision": "26fcc641a0036a7e04100a116a41255251da0db9",
+  "fix_revision": "030ca5a032ab05e6424a52c4499b58f1d0eab04b",
+  "package": {
+    "provenance": "Local native build; no downloaded-artifact quarantine claim",
+    "file": "gosync-desktop-darwin-arm64.zip",
+    "sha256": "35a588761fef289e306e54abbd5fe346a704baf05fd0958090664c45f7d38ea0",
+    "signature": "Ad hoc; codesign --verify --deep --strict passed",
+    "installation": "User Applications/GoSync.app",
+    "spctl_assessment": "Rejected (exit 3), expected for ad-hoc signing; no Gatekeeper protections changed."
+  },
+  "method": {
+    "service": "Real launchd GUI domain using installed bundled companion; controller and native adapter invoked by a temporary Go driver",
+    "peers": 2,
+    "transport": "Mutual TLS with unique disposable authority and group",
+    "discovery": "Explicit loopback addresses; mDNS disabled",
+    "upload_limit_bytes_per_second": 1048576,
+    "data": "Disposable paths containing spaces; no personal synchronized folders",
+    "provenance_note": "Initial native driver includes the fix revision code; initial companion built at base revision (daemon source unchanged). All completed GUI checks used installed package from fix_revision.",
+    "interactive": "Real native menus and dialogs operated via macOS accessibility scripting after user-approved OS permissions; no direct controller calls for GUI checks."
+  },
+  "automated_checks": [
+    {
+      "test": "make test (Go race suite)",
+      "passed": true
+    },
+    {
+      "test": "go vet ./...",
+      "passed": true
+    },
+    {
+      "test": "Desktop-tagged race tests",
+      "passed": true
+    },
+    {
+      "test": "Desktop-tagged vet",
+      "passed": true
+    },
+    {
+      "test": "make desktop; native arm64 package, plist and signature validation",
+      "passed": true
+    },
+    {
+      "test": "actionlint v1.7.12",
+      "passed": true
+    },
+    {
+      "test": "git diff --check",
+      "passed": true
+    }
+  ],
+  "expected_test_skip": "Creating two local names differing only in case is impossible on this filesystem; overwrite-protection test still ran and passed. Distinct-name advertisement test runs on case-sensitive filesystems.",
+  "native_checks": [
+    {
+      "test": "LaunchAgent uses installed companion and configuration with spaces; private plist",
+      "passed": true
+    },
+    {
+      "test": "Matching fresh launchd PID heartbeat",
+      "passed": true
+    },
+    {
+      "test": "Repeated controller start retains daemon PID",
+      "passed": true
+    },
+    {
+      "test": "Disabled login override is read correctly on macOS 26",
+      "passed": true
+    },
+    {
+      "test": "LaunchAgent stop publishes stopped status",
+      "passed": true
+    },
+    {
+      "test": "Explicit start preserves disabled login preference and node identity",
+      "passed": true
+    },
+    {
+      "test": "Login preference can be re-enabled independently",
+      "passed": true
+    },
+    {
+      "test": "Tray login registration references installed executable",
+      "passed": true
+    },
+    {
+      "test": "Tray login removal leaves daemon running",
+      "passed": true
+    },
+    {
+      "test": "Forward text replication",
+      "passed": true
+    },
+    {
+      "test": "Reverse text edit replication",
+      "passed": true
+    },
+    {
+      "test": "Nested executable replication",
+      "passed": true
+    },
+    {
+      "test": "Rename replication",
+      "passed": true
+    },
+    {
+      "test": "Reverse deletion replication",
+      "passed": true
+    },
+    {
+      "test": "Real transfer activity recorded",
+      "passed": true
+    },
+    {
+      "test": "12 MiB binary hash equality",
+      "passed": true
+    },
+    {
+      "test": "Binary checksum",
+      "passed": true,
+      "sha256": "cd818a780cdef5d1b51cfd6de4358f42ec44b9dcb0b56e95fdbf94175cb85dc8",
+      "size_bytes": 12582912
+    },
+    {
+      "test": "Growing file arrives before source writer finishes",
+      "passed": true
+    },
+    {
+      "test": "Growing file final bytes converge",
+      "passed": true
+    },
+    {
+      "test": "Real daemon acknowledges rescan",
+      "passed": true
+    },
+    {
+      "test": "Stop before ownership test",
+      "passed": true
+    },
+    {
+      "test": "External CLI owns selected history",
+      "passed": true
+    },
+    {
+      "test": "Controller rejects duplicate external CLI state ownership",
+      "passed": true
+    },
+    {
+      "test": "Tray controller stop leaves external CLI untouched",
+      "passed": true
+    },
+    {
+      "test": "Restart retains identity and synchronized files",
+      "passed": true
+    },
+    {
+      "test": "History and payloads preserved across lifecycle tests",
+      "passed": true
+    },
+    {
+      "test": "Broken TLS is rejected while cached validated configuration still permits safe managed stop",
+      "passed": true
+    },
+    {
+      "test": "Terminating the test tray process leaves the same daemon PID syncing; Quit Tray menu not exercised",
+      "passed": true
+    },
+    {
+      "test": "Native adapter removal stops and unloads daemon, removes owned plists, and preserves configuration, data, and history",
+      "passed": true
+    },
+    {
+      "test": "Fixed ad-hoc signed package installed in user Applications after stopping test processes",
+      "passed": true
+    }
+  ],
+  "interactive_checks": [
+    {
+      "test": "Launch installed .app through Finder and observe native welcome dialog",
+      "passed": true
+    },
+    {
+      "test": "Fixed package launches its native welcome dialog",
+      "passed": true,
+      "evidence": "../media/desktop-macos-welcome.png"
+    },
+    {
+      "test": "Native folder chooser selected disposable path with spaces; LAN and deletion disclosure shown; Cancel created no config, preference, service, or folder content",
+      "passed": true
+    },
+    {
+      "test": "Native existing-config chooser and TLS confirmation start the real LaunchAgent preserving group and history",
+      "passed": true
+    },
+    {
+      "test": "Rescan Now menu displays real daemon acknowledgement",
+      "passed": true
+    },
+    {
+      "test": "Open Sync Folder opens the disposable files folder in Finder",
+      "passed": true
+    },
+    {
+      "test": "Status menu opens private snapshot details in TextEdit",
+      "passed": true
+    },
+    {
+      "test": "View Logs opens the real daemon.log in Console",
+      "passed": true
+    },
+    {
+      "test": "Native login checkbox disables synchronization startup",
+      "passed": true
+    },
+    {
+      "test": "Stop GoSync menu gracefully stops managed daemon",
+      "passed": true
+    },
+    {
+      "test": "Start GoSync menu restarts while retaining disabled login preference",
+      "passed": true
+    },
+    {
+      "test": "Show tray at login menu independently registers tray LaunchAgent",
+      "passed": true
+    },
+    {
+      "test": "Actual Mac menu displays live transfer activity and nonzero counter-derived send rate",
+      "passed": true
+    },
+    {
+      "test": "Real Quit Tray menu exits UI; same daemon PID and fresh heartbeat continue reverse-direction synchronization",
+      "passed": true
+    },
+    {
+      "test": "Both 20 MiB UI transfer payloads converge byte-for-byte, including after Quit Tray",
+      "passed": true
+    },
+    {
+      "test": "Relaunch restores one tray without restarting or duplicating the daemon",
+      "passed": true
+    },
+    {
+      "test": "Settings removal stops and unloads daemon, removes both login plists, exits tray, and preserves files, configuration, identity, and database history",
+      "passed": true
+    },
+    {
+      "test": "Test-only desktop selection removed and all test daemons stopped; app remains installed",
+      "passed": true
+    }
+  ],
+  "bugs_fixed": [
+    "launchctl print-disabled uses disabled/enabled on this Mac; old parser recognized only true/false and could lose disabled login preference on Start",
+    "launchctl last exit code (never exited) was incorrectly shown as a failure detail",
+    "Case-collision test used Stat to assert different spelling absent on a case-insensitive filesystem"
+  ],
+  "remaining": [
+    "Actual logout/login and duplicate-process checks after login",
+    "Mac-to-Spark physical-LAN and mDNS run: supplied address unreachable and saved SSH alias did not authenticate",
+    "Downloaded quarantine, Gatekeeper, protected folders, and clean-Mac local-network prompts",
+    "Developer ID signing and notarization",
+    "Native Intel interactive runtime, Windows runtime, three-machine LAN, and long soaks",
+    "Light appearance, protected-folder access, stale-status and startup-error views through native menus, and opening configuration in the default editor were not separately exercised."
+  ],
+  "cleanup": "All test daemons and tray stopped. Both managed LaunchAgent plists removed. Exact test-only desktop selection removed; synchronized files, config, and history retained in private temporary fixtures. Fixed app remains installed in user Applications. Temporary ChatGPT Accessibility and System Events Automation permissions restored to off after GUI testing; existing permissions for other apps were preserved.",
+  "ci": [
+    {
+      "workflow": "Native desktop builds",
+      "url": "https://github.com/TypeTerrors/go_sync/actions/runs/44995682777",
+      "note": "All four native platforms passed; both Mac jobs also ran full daemon race tests and vet.",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Regression tests",
+      "url": "https://github.com/TypeTerrors/go_sync/actions/runs/44995682967",
+      "conclusion": "success"
+    }
+  ]
+}

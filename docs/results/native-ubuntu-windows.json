@@ -1,0 +1,208 @@
+{
+  "date": "2026-11-22T19:47:34.476680+00:00",
+  "source_base": "07fd3647bc90358365ca659d8960ec417eeccc05",
+  "branch": "feature/macos-single-status-icon",
+  "platform": "DGX Spark, Ubuntu ARM64, GNOME X11",
+  "methods": [
+    "Production make desktop ARM64 build launched in the real user desktop session.",
+    "GTK controls and native file choosers exercised through AT-SPI; real X11 keyboard events used for picker locations and window shortcuts.",
+    "Tray reopening exercised through its published StatusNotifier DBusMenu action interface.",
+    "Fresh disposable folders, private CA and two mutual-TLS identities, loopback peers, mDNS disabled, explicit independent state directories.",
+    "Existing service/preferences were absent at baseline. Only test-owned integration and processes were removed; the preexisting desktop lock was preserved.",
+    "Status inspection used atomic status.json files and systemd user service state; no UI access to the daemon database.",
+    "Transfers first exercised configured batching; preview transfers used unlimited transfer quantum and a 512 KiB/s outgoing limit to permit observation of sustained activity.",
+    "A malformed test transfer-quantum value was rejected at Start with a visible error and no running daemon; correcting the test configuration allowed recovery.",
+    "A test-owned daemon was temporarily suspended with SIGSTOP to exercise stale heartbeat detection, then resumed with SIGCONT."
+  ],
+  "automated_validation": [
+    {
+      "command": "CGO_ENABLED=1 go test -race -tags desktop ./internal/desktop/... ./cmd/tray",
+      "result": "passed"
+    },
+    {
+      "command": "CGO_ENABLED=1 go vet -tags desktop ./internal/desktop/... ./cmd/tray",
+      "result": "passed"
+    },
+    {
+      "command": "xvfb-run -a /usr/bin/python3 scripts/test-dashboard.py",
+      "result": "10 tests passed; Xvfb extracted into a temporary tool directory because it was not installed system-wide"
+    },
+    {
+      "command": "make desktop",
+      "result": "passed; native Linux ARM64 binary and DEB"
+    },
+    {
+      "command": "make test",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./...",
+      "result": "passed"
+    },
+    {
+      "command": "make integration",
+      "result": "passed; three-peer Docker regression and startup/mDNS suites"
+    }
+  ],
+  "native_checks": [
+    {
+      "test": "Native folder picker and security confirmation cancellation leave configuration absent",
+      "passed": true
+    },
+    {
+      "test": "New folder setup creates a separate profile and stays stopped",
+      "passed": true
+    },
+    {
+      "test": "Canceling another folder setup preserves selected configuration",
+      "passed": true
+    },
+    {
+      "test": "Returning through folder picker reuses exact profile and history",
+      "passed": true
+    },
+    {
+      "test": "Canceling configuration import preserves selected folder",
+      "passed": true
+    },
+    {
+      "test": "Canceling LAN activation leaves synchronization stopped",
+      "passed": true
+    },
+    {
+      "test": "Tray relaunch preserves selected profile without starting synchronization",
+      "passed": true
+    },
+    {
+      "test": "Native configuration import preserves mutual TLS and stays stopped",
+      "passed": true
+    },
+    {
+      "test": "Returning to imported secure folder reuses its original configuration and state",
+      "passed": true
+    },
+    {
+      "test": "Start uses user service and blocks folder switching while active",
+      "passed": true
+    },
+    {
+      "test": "Independent mutually authenticated loopback peer started",
+      "passed": true
+    },
+    {
+      "test": "Daemon and tray login toggles are independent and do not restart synchronization",
+      "passed": true
+    },
+    {
+      "test": "Live peer table and selected full identity details",
+      "passed": true
+    },
+    {
+      "test": "Attention tab shows honest empty state",
+      "passed": true
+    },
+    {
+      "test": "Activity Rescan receives daemon acknowledgement",
+      "passed": true
+    },
+    {
+      "test": "Bidirectional binary converged",
+      "passed": true,
+      "file": "studio-sample.bin",
+      "bytes": 25165824,
+      "sha256": "6bd676fa41993e0bb36faffc352c496a9bfdc8fa9271cca7e1aef3490a95bd5b"
+    },
+    {
+      "test": "Bidirectional binary converged",
+      "passed": true,
+      "file": "orbit-sample.bin",
+      "bytes": 25165824,
+      "sha256": "aba71f09e0888750bac5c83bd8dbadeeeb803ff835a1d581b1436e7019c3aa53"
+    },
+    {
+      "test": "Stop shows explicitly historical Activity without terminating tray",
+      "passed": true
+    },
+    {
+      "test": "Failed service start leaves daemon stopped and presents configuration error",
+      "passed": true
+    },
+    {
+      "test": "Start after Stop preserves selected secure configuration and history",
+      "passed": true
+    },
+    {
+      "test": "Native transfer rows, full details, measured rates and graph reflect active bidirectional payloads",
+      "passed": true,
+      "active_downloads": 1,
+      "active_uploads": 1
+    },
+    {
+      "test": "Bidirectional binary converged",
+      "passed": true,
+      "file": "studio-preview.bin",
+      "bytes": 25165824,
+      "sha256": "e0e5cb08a4a6fc2dac81469b30a8bf0fdfc411198cbce888d3e50d3d02b60480"
+    },
+    {
+      "test": "Bidirectional binary converged",
+      "passed": true,
+      "file": "orbit-preview.bin",
+      "bytes": 25165824,
+      "sha256": "cd7ac3a54c8421af993d6f01f76036df3c696f2fb847b8a4f4927f3d2a1f2810"
+    },
+    {
+      "test": "Close and reopen both native windows leaves tray and same daemon running",
+      "passed": true
+    },
+    {
+      "test": "Quit Tray leaves same daemon running and another binary transfers afterward",
+      "passed": true,
+      "bytes": 4194304,
+      "sha256": "bbaaf371e82fe7fa42316e83a8644c5edf059c23c25b31ca19dc89b18eb4172b"
+    },
+    {
+      "test": "Relaunch attaches to same daemon without duplicate engine",
+      "passed": true
+    },
+    {
+      "test": "Suspended test daemon produces stale historical state and readable Attention explanation",
+      "passed": true
+    },
+    {
+      "test": "Fresh status recovers after test daemon resumes",
+      "passed": true
+    },
+    {
+      "test": "Service removal cancellation preserves running daemon",
+      "passed": true
+    },
+    {
+      "test": "Confirmed removal stops service and quits tray while preserving files configuration and history",
+      "passed": true
+    },
+    {
+      "test": "Test-owned integration and processes cleaned up; original desktop lock retained and test histories archived",
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/media/desktop-ubuntu-settings.png",
+      "sha256": "00c797981d93b5ec026e1158c58ca5b83f2fc5932306159ebcf6b48df9303336",
+      "capture": "Gdk X11 capture of the actual application window; no image editing or simulated data"
+    },
+    {
+      "path": "docs/media/desktop-ubuntu-activity.png",
+      "sha256": "946a4ef62bc5e9d45b22a89454f5f0dcefdc048960760aa3fb2666de84c4f605",
+      "capture": "Gdk X11 capture of the actual application window; no image editing or simulated data"
+    }
+  ],
+  "cleanup": "Confirmed service removal through Settings. Tray and both test daemons stopped; test login integration and selected preferences removed. Test-created profiles and histories retained in a private temporary archive, outside active user configuration.",
+  "limitations": [
+    "Interactive captures use the real desktop dark appearance; light/dark GTK rendering is additionally covered by automated widget tests.",
+    "Wayland, actual logout/login, graphical DEB installation, clean-machine prompts, and physical cross-machine LAN behavior were not tested in this run.",
+    "Mac native UI checks for the original Mac changes are documented separately; the shared Go extraction in this continuation has not been rerun on a Mac.",
+    "Hosted CI on the preceding commit was rejected before any runner started due to an account payment/spending-limit annotation. Fresh-commit CI must pass before merge; local results do not replace it."
+  ]
+}

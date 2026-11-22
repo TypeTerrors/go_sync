@@ -1,0 +1,326 @@
+name: Tag merges and publish releases
+
+on:
+  pull_request_target:
+    types: [closed]
+
+# The target event also covers merged fork PRs. Only the metadata-only jobs get
+# write access; merged code is built separately with a read-only token.
+permissions: {}
+
+concurrency:
+  group: merge-release-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.merge.outputs.tag }}
+      tagname: ${{ steps.merge.outputs.tagname }}
+      sha: ${{ steps.merge.outputs.sha }}
+      publish: ${{ steps.merge.outputs.publish }}
+    steps:
+      - name: Tag the exact merged commit
+        id: merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pull = context.payload.pull_request;
+            if (context.payload.action !== 'closed' || pull?.merged !== true) {
+              core.setOutput('publish', 'false');
+              return;
+            }
+            const sha = pull.merge_commit_sha;
+            const mergedAt = Date.parse(pull.merged_at);
+            if (!/^[a-f0-9]{40}$/.test(sha) || !Number.isSafeInteger(pull.number) || pull.number < 1 ||
+                typeof pull.merged_at !== 'string' || !Number.isFinite(mergedAt) || mergedAt < 0) {
+              throw new Error('Missing or invalid merged PR identity');
+            }
+            // Keep the original SHA/hex-time format, using the merge event's
+            // timestamp so a delayed job or rerun reuses the same version.
+            const shortSha = sha.slice(0, 6);
+            const unixTime = Math.floor(mergedAt / 1000);
+            const date = new Date(mergedAt).toISOString().slice(0, 10).replaceAll('-', '');
+            const tag = `v_${shortSha}.${unixTime.toString(16)}`;
+            const tagname = `v_${shortSha}.${date}`;
+            let existing;
+            try {
+              existing = (await github.rest.git.getRef({...context.repo, ref: `tags/${tag}`})).data;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (existing) {
+              if (existing.object.type !== 'commit' || existing.object.sha !== sha) {
+                throw new Error(`Refusing to move existing tag ${tag}`);
+              }
+            } else {
+              await github.rest.git.createRef({...context.repo, ref: `refs/tags/${tag}`, sha});
+            }
+            core.setOutput('tag', tag);
+            core.setOutput('tagname', tagname);
+            core.setOutput('sha', sha);
+            core.setOutput('publish', pull.base.ref === context.payload.repository.default_branch ? 'true' : 'false');
+            core.notice(`Tagged merged PR #${pull.number}: ${tag} -> ${sha}`);
+
+  build:
+    needs: tag
+    if: needs.tag.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tagged merge, not a moving branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: false
+      - name: Test release workflow behavior
+        run: node --test scripts/release-workflow.test.cjs
+      - name: Run race tests and static analysis
+        run: |
+          make test
+          go vet ./...
+      - name: Verify three-peer synchronization
+        run: make integration
+      - name: Build all six platform binaries
+        run: make dist
+      - name: Generate download checksums
+        working-directory: dist
+        run: sha256sum gosync-* > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ needs.tag.outputs.tag }}-cli
+          path: |
+            dist/gosync-*
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+
+  desktop:
+    needs: tag
+    if: needs.tag.outputs.publish == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            os: linux
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
+          - runner: macos-15-intel
+            os: darwin
+            arch: amd64
+          - runner: macos-15
+            os: darwin
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: false
+      - name: Verify native architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: test "$(go env GOHOSTARCH)" = "$EXPECTED_ARCH"
+      - name: Install Ubuntu dashboard dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 xvfb xauth
+      - name: Native GTK dashboard checks
+        if: matrix.os == 'linux'
+        run: xvfb-run -a /usr/bin/python3 scripts/test-dashboard.py
+      - name: Native desktop tests and build
+        run: |
+          CGO_ENABLED=1 go test -race -tags desktop ./internal/desktop/... ./cmd/tray
+          CGO_ENABLED=1 go vet -tags desktop ./internal/desktop/... ./cmd/tray
+          make desktop
+      - name: Checksum the native package
+        run: |
+          python3 - <<'PYCODE'
+          import hashlib, pathlib
+          for path in pathlib.Path('dist').glob('gosync-desktop-*'):
+              if path.is_file():
+                  path.with_name(path.name + '.sha256').write_text(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name + '\n')
+          PYCODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ needs.tag.outputs.tag }}-desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/gosync-desktop-*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    # Serialize the latest-release decision across independently finishing builds.
+    concurrency:
+      group: gosync-release-publication
+      cancel-in-progress: false
+    needs: [tag, build, desktop]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # No checkout or execution of repository code in this privileged job.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-${{ needs.tag.outputs.tag }}-*
+          merge-multiple: true
+          path: dist
+      - name: Publish a complete release from the merge tag
+        id: publish
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ needs.tag.outputs.tag }}
+          RELEASE_NAME: ${{ needs.tag.outputs.tagname }}
+          RELEASE_SHA: ${{ needs.tag.outputs.sha }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const crypto = require('node:crypto');
+            const pull = context.payload.pull_request;
+            const tag = process.env.RELEASE_TAG;
+            const releaseName = process.env.RELEASE_NAME;
+            const sha = process.env.RELEASE_SHA;
+            const mergedAt = Date.parse(pull?.merged_at);
+            if (context.payload.action !== 'closed' || pull?.merged !== true ||
+                pull.base.ref !== context.payload.repository.default_branch ||
+                !/^[a-f0-9]{40}$/.test(sha) || sha !== pull.merge_commit_sha ||
+                typeof pull.merged_at !== 'string' || !Number.isFinite(mergedAt) || mergedAt < 0 ||
+                tag !== `v_${sha.slice(0, 6)}.${Math.floor(mergedAt / 1000).toString(16)}`) {
+              throw new Error('Only the tagged default-branch merge can become a release');
+            }
+            const date = new Date(mergedAt).toISOString().slice(0, 10).replaceAll('-', '');
+            if (releaseName !== `v_${sha.slice(0, 6)}.${date}`) {
+              throw new Error('Release name does not match the merge SHA and UTC date');
+            }
+            const ref = (await github.rest.git.getRef({...context.repo, ref: `tags/${tag}`})).data;
+            if (ref.object.type !== 'commit' || ref.object.sha !== sha) {
+              throw new Error(`Tag ${tag} no longer points to the expected merge`);
+            }
+            const binaries = [
+              'gosync-darwin-amd64', 'gosync-darwin-arm64',
+              'gosync-linux-amd64', 'gosync-linux-arm64',
+              'gosync-windows-amd64.exe', 'gosync-windows-arm64.exe',
+            ];
+            const desktop = [
+              'gosync-desktop-linux-amd64.deb', 'gosync-desktop-linux-arm64.deb',
+              'gosync-desktop-darwin-amd64.zip', 'gosync-desktop-darwin-arm64.zip',
+            ];
+            const checksumFiles = desktop.map(name => `${name}.sha256`);
+            const names = [...binaries, ...desktop, ...checksumFiles, 'SHA256SUMS'].sort();
+            if (JSON.stringify(fs.readdirSync('dist').sort()) !== JSON.stringify(names)) {
+              throw new Error('Release artifact must contain all six CLI binaries, four desktop packages, and their checksums');
+            }
+            const files = new Map(names.map(name => {
+              if (!fs.lstatSync(`dist/${name}`).isFile()) throw new Error(`Not a regular file: ${name}`);
+              const data = fs.readFileSync(`dist/${name}`);
+              if (!data.length) throw new Error(`Empty release file: ${name}`);
+              return [name, data];
+            }));
+            const sums = new Map();
+            for (const line of files.get('SHA256SUMS').toString('utf8').trim().split('\n')) {
+              const match = /^([a-f0-9]{64})  (gosync-[a-z0-9.-]+)$/.exec(line);
+              if (!match || !binaries.includes(match[2]) || sums.has(match[2])) {
+                throw new Error('Invalid or duplicate checksum entry');
+              }
+              sums.set(match[2], match[1]);
+            }
+            for (const name of binaries) {
+              const actual = crypto.createHash('sha256').update(files.get(name)).digest('hex');
+              if (sums.get(name) !== actual) throw new Error(`Checksum mismatch: ${name}`);
+            }
+            for (const name of desktop) {
+              const actual = crypto.createHash('sha256').update(files.get(name)).digest('hex');
+              if (files.get(`${name}.sha256`).toString('utf8') !== `${actual}  ${name}\n`) {
+                throw new Error(`Checksum mismatch: ${name}`);
+              }
+            }
+            let release;
+            try {
+              release = (await github.rest.repos.getReleaseByTag({...context.repo, tag})).data;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (!release) {
+              // The by-tag endpoint is documented for published releases. Find
+              // an interrupted draft through the authenticated release listing.
+              const releases = await github.paginate(github.rest.repos.listReleases, {
+                ...context.repo, per_page: 100,
+              });
+              release = releases.find(candidate => candidate.tag_name === tag);
+            }
+            if (!release) {
+              release = (await github.rest.repos.createRelease({
+                ...context.repo, tag_name: tag, target_commitish: sha,
+                name: releaseName, draft: true, prerelease: false,
+                generate_release_notes: true,
+                body: `Automatic build of merged PR #${pull.number}.\n\n` +
+                  'Downloads cover Linux, macOS (darwin), and Windows on amd64 and arm64. ' +
+                  'SHA256SUMS contains the download checksums. Linux has native runtime coverage; ' +
+                  'Desktop packages include native-built macOS menu-bar apps and Ubuntu DEBs. ' +
+                  'macOS apps are ad-hoc signed, not notarized. Windows CLI binaries remain cross-compiled. ' +
+                  'See docs/DESKTOP.md for installation, security, and native validation limits.\n\n',
+              })).data;
+            }
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              ...context.repo, release_id: release.id, per_page: 100,
+            });
+            if (!release.draft) {
+              if (JSON.stringify(assets.map(asset => asset.name).sort()) !== JSON.stringify(names) ||
+                  assets.some(asset => asset.state !== 'uploaded' || asset.size <= 0)) {
+                throw new Error('Published release is incomplete; refusing to overwrite public assets');
+              }
+              core.notice(`Release already published; left unchanged: ${release.html_url}`);
+              return;
+            }
+            if (assets.some(asset => !names.includes(asset.name))) {
+              throw new Error('Draft contains unexpected assets; refusing to replace it');
+            }
+            // A failed upload leaves a draft. A rerun replaces its assets before publication.
+            for (const name of names) {
+              const existing = assets.find(asset => asset.name === name);
+              if (existing) {
+                await github.rest.repos.deleteReleaseAsset({...context.repo, asset_id: existing.id});
+              }
+              await github.rest.repos.uploadReleaseAsset({
+                ...context.repo, release_id: release.id, name, data: files.get(name),
+                headers: {'content-type': name === 'SHA256SUMS' ? 'text/plain' : 'application/octet-stream'},
+              });
+            }
+            // GitHub's legacy semver ordering misorders our SHA/timestamp tags.
+            // An older, slower build must not replace a newer complete release.
+            const publishedReleases = await github.paginate(github.rest.repos.listReleases, {
+              ...context.repo, per_page: 100,
+            });
+            const newerComplete = publishedReleases.some(candidate => {
+              const match = /^v_[0-9a-f]{6}\.([0-9a-f]{1,12})$/.exec(candidate.tag_name || '');
+              const available = new Set((candidate.assets || [])
+                .filter(asset => asset.state === 'uploaded' && asset.size > 0).map(asset => asset.name));
+              return !candidate.draft && !candidate.prerelease && match &&
+                parseInt(match[1], 16) > Math.floor(mergedAt / 1000) && names.every(name => available.has(name));
+            });
+            const published = (await github.rest.repos.updateRelease({
+              ...context.repo, release_id: release.id, draft: false, make_latest: newerComplete ? 'false' : 'true',
+            })).data;
+            core.notice(`Published ${published.html_url}`);

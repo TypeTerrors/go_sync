@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-22",
+  "feature": "Ubuntu dashboard visual parity with macOS",
+  "branch": "feature/ubuntu-tray-parity",
+  "base_commit": "23d1b8c697c29eff8c4acf0c505f4123449b04e9",
+  "environment": {
+    "os": "Ubuntu",
+    "architecture": "arm64",
+    "desktop": "GNOME",
+    "session": "X11",
+    "gtk": "3.24",
+    "peers": "Two native loopback processes in a private mutual-TLS test group"
+  },
+  "passed": [
+    "Packaged tray launched; real StatusNotifier activation opened native GTK dashboard",
+    "Displayed actual folder, TLS mode, peer/entry/transfer counts, payload rates and 60-second history",
+    "GTK Stop/Start controls stopped and restarted the real systemd user daemon with persistent identity",
+    "GTK Rescan and native Ctrl+R shortcut each produced daemon acknowledgement",
+    "GTK View Logs opened native journald viewer",
+    "Independent tray-login toggle created and removed owned autostart definition",
+    "Daemon login disabled/enabled without stopping its running synchronization",
+    "Closing/reopening dashboard left daemon running",
+    "Quit Tray exited tray and renderer; same daemon PID replicated a new file afterward",
+    "20 MiB binary transfer in each direction converged with identical SHA-256 hashes",
+    "Additional 4 MiB binary transfers verified in both directions; genuine screenshot captured during activity",
+    "Relaunched tray and opened native Settings",
+    "All 43 Docker file/mDNS checks and 14 simple-startup checks",
+    "Go race suite, desktop race tests, vet, workflow lint and 13 release-publication tests",
+    "Native GTK widget tests: controls, safe closure/reopening, stale history, light/dark rendering"
+  ],
+  "interaction_methods": [
+    "Real GTK and Zenity controls through AT-SPI",
+    "Native Ctrl+R via XTest",
+    "Real session D-Bus StatusNotifier activation"
+  ],
+  "screenshot": "docs/media/desktop-ubuntu.png",
+  "cleanup": "Test processes stopped and owned test unit/preferences removed; test files, config and history preserved. Cleanup used scoped local commands.",
+  "not_verified": [
+    "Wayland interactive session",
+    "Other tray hosts such as KDE",
+    "Actual logout/login",
+    "Graphical DEB installation",
+    "Physical LAN in this run",
+    "Interactive macOS retest; shared model covered by native CI"
+  ]
+}
